@@ -52,9 +52,10 @@ class Monitor:
         self.api_id = api_id
         self.api_hash = api_hash
         self.bot_token = bot_token
+        self.session_name = session_name
 
         # creating a Telegram session and assigning it to a variable client
-        client = TelegramClient('bot', self.api_id, self.api_hash)
+        client = TelegramClient(self.session_name, self.api_id, self.api_hash)
         client.parse_mode = 'html'
         client.start(bot_token=self.bot_token)
 
