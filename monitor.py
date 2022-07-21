@@ -18,7 +18,7 @@ from telethon import TelegramClient, events, types, errors
 
 from utils import send, reboot_pi, get_ip, past_time_formatter
 from store_checker import StoreChecker
-from parameters import username, api_id, api_hash, bot_token, polling_interval_seconds, report_after_n_counts, config_path, data_path, log_path, randomize_proxies
+from parameters import username, api_id, api_hash, bot_token, session_name, polling_interval_seconds, report_after_n_counts, config_path, data_path, log_path, randomize_proxies
 
 
 # registering the possible user commands
