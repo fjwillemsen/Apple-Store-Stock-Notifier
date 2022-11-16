@@ -154,7 +154,7 @@ class StoreChecker:
 
         def getlink(storePickupProductTitle):
             link = self.PRODUCT_BUY_URL.format(
-                self.base_url, self.device_family)
+                self.base_url, "iphone-14")
             if "Pro" in storePickupProductTitle:
                 link += "-pro"
             return link
@@ -243,7 +243,6 @@ class StoreChecker:
             self.PRODUCT_LOCATOR_URL.format(
                 self.base_url, self.configuration.device_family)
         )
-
         if product_locator_response.status_code != 200 or product_locator_response.json() is None:
             print("----> HERE" + str(device_list))
             return []
@@ -272,7 +271,6 @@ class StoreChecker:
                 ):
                     device_list.append({"title": product.get(
                         "productTitle"), "model": model, "carrier": carrier})
-
         except BaseException:
             if verbose:
                 print("{}".format(crayons.red("✖  Failed to find the device family")))
@@ -282,14 +280,20 @@ class StoreChecker:
                         "➜  Looking for device models instead...")))
                 for model in self.configuration.selected_device_models:
                     device_list.append({"model": model})
+        print(device_list)
         return device_list
 
-    async def check_stores_for_device(self, device):
+    async def check_stores_for_device(self, device, verbose=True):
         """Find all stores that have the device requested available (does not matter if it's in stock or not)."""
         product_availability_response = await self.get_request(
             self.PRODUCT_AVAILABILITY_URL.format(
                 self.base_url, device.get("model"), self.configuration.zip_code)
         )
+        if verbose:
+            print(product_availability_response)
+        if product_availability_response.status_code != 200 or product_availability_response.json() is None:
+            print("\n{}".format(crayons.red("Cannot get stores!")))
+            return
         store_list = product_availability_response.json().get("body").get("stores")
         # Go through all the stores in the list and extract useful information.
         # Group products by store (put the stock for this device in the store's
@@ -350,7 +354,9 @@ class StoreChecker:
         print("{}".format(crayons.blue("\n✔  Done\n")))
         return slots_found, message
 
-    async def get_request(self, url: str, proxy_retry_count=0) -> requests.Response:
+    async def get_request(self, url: str, proxy_retry_count=0, verbose=True) -> requests.Response:
+        if verbose:
+            print(url)
         """ Wrapper function to execute a get request, optionally with a randomized proxy """
         max_proxy_attempts = 1
         if self.randomize_proxies is False or proxy_retry_count >= max_proxy_attempts:
@@ -364,7 +370,8 @@ class StoreChecker:
                     self.count_randomized_proxy_success += 1
                     return response
                 else:
-                    return await self.get_request(url, proxy_retry_count+1)
+                    time.sleep(3)
+                    return await self.get_request(url, proxy_retry_count+1, verbose)
             except ProxyListException:
                 message = f"Proxy list has been depleted, refreshing the proxy list..."
                 print(message)
