@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function, unicode_literals
+import asyncio
 
 import json
 import time
@@ -53,8 +54,10 @@ class StoreChecker:
     STORE_APPOINTMENT_AVAILABILITY_URL = (
         "https://retail-pz.cdn-apple.com/product-zone-prod/availability/{0}/{1}/availability.json"
     )
+    # URL for the product buy
+    PRODUCT_BUY_URL = "{0}shop/buy-iphone/{1}"
 
-    def __init__(self, username, filename="config.json", randomize_proxies=False):
+    def __init__(self, username="dummy", filename="config.json", randomize_proxies=False):
         """Initialize the configuration for checking store(s) for stock."""
 
         self.username = username
@@ -104,7 +107,7 @@ class StoreChecker:
             return len(self.req_proxy.get_proxy_list())
         return 0
 
-    async def refresh(self, client, verbose=True):
+    async def refresh(self, client="", verbose=True):
         """Refresh information about the stock that is available on the Apple website, returns whether it is available"""
         start_time = time.perf_counter()
         self.telegram_client = client
@@ -150,7 +153,8 @@ class StoreChecker:
         message = ""
 
         def getlink(storePickupProductTitle):
-            link = "https://www.apple.com/shop/buy-iphone/iphone-13"
+            link = self.PRODUCT_BUY_URL.format(
+                self.base_url, self.device_family)
             if "Pro" in storePickupProductTitle:
                 link += "-pro"
             return link
@@ -170,10 +174,10 @@ class StoreChecker:
                 store.get("storeId")
             )
             for part_id, part in store.get("parts").items():
-                available = part.get("storeSelectionEnabled")
+                available = part.get("messageTypes").get("regular").get("storeSelectionEnabled")
                 if available:
                     stock_available = True
-                storePickupProductTitle = part.get("storePickupProductTitle")
+                storePickupProductTitle = part.get("messageTypes").get("regular").get("storePickupProductTitle")
                 partNumber = part.get("partNumber")
                 if verbose:
                     print(
@@ -371,4 +375,4 @@ class StoreChecker:
 
 if __name__ == "__main__":
     store_checker = StoreChecker()
-    store_checker.refresh()
+    asyncio.run(store_checker.refresh())
