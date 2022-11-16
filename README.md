@@ -15,9 +15,10 @@ How to install
 1. Clone this repository and `cd` to it. 
 2. Execute `pip install -r requirements.txt`.
 3. Adapt the `config.json` file to your needs (see under "use"). 
-4. [Create a Telegram bot]() to inform you and enter the required details in `parameters.py`. 
+4. Create a Telegram bot at @botfather in telegram app to inform you and enter the required details in `parameters.py`.
+5. [Create a Telegram API](https://my.telegram.org/apps) to send message to bot and enter the required details (api_id, api_hash) in `parameters.py`.
 6. Run the monitor with `python monitor.py`. 
-5. (optional) Send `/setcommands` to the Telegram Botfather chat, select the bot and send the output under "Commands available:" to make the commands easily accessible from the chat. 
+7. (optional) Send `/setcommands` to the Telegram Botfather chat, select the bot and send the output under "Commands available:" to make the commands easily accessible from the chat. 
 
 Running the pip numpy on the Raspberry Pi can be cumbersome. 
 If you get errors pertaining to "Importing the numpy C-extensions failed", try running `sudo apt-get install python-dev libatlas-base-dev`. 
