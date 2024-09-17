@@ -26,7 +26,7 @@ If you get errors pertaining to "Importing the numpy C-extensions failed", try r
 It's as simple as entering the device and Apple Store you want in `config.json` and running `python module.py`. 
 The model in `config.json` is the model part number, that can be looked up [here](https://www.techwalls.com/iphone-13-pro-model-number-a2483-a2636-a2638-a2639-a2640-differences/). 
 The store in `config.json` is the store ID, a list of which can be looked up [here](https://gist.github.com/iF2007/ff127f7722af91c47c0cb44d6c1e961d), defaults to all stores in the zip-code region. 
-`config.json` is part of the interface of Apple Store Reserve Monitor, more information on how to use this [here](https://github.com/insanoid/Apple-Store-Reserve-Monitor). 
+`config.json` is part of the interface of Apple Store Reserve Monitor, more information on how to use this [here](https://github.com/insanoid/Apple-Store-Reserve-Monitor).
 
 You can change the parameters regarding intervals, paths, use of proxies etc. from the defaults in `parameters.py`. 
 
