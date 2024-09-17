@@ -192,7 +192,7 @@ class Monitor:
                 availability, datetimestamp, refresh_processing_time = await self.store_checker.refresh(client, verbose=False)
                 self.data.append({'availability': availability, 'datetimestamp': datetimestamp,
                                   'processing_time': refresh_processing_time})
-                newly_available = availability is True and found_availables[-1] is False
+                newly_available = availability is True and (not found_availables or found_availables[-1] is False)
                 found_availables.append(availability)
                 count += 1
                 count_connection_errors += 1
