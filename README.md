@@ -16,7 +16,7 @@ How to install
 2. Execute `pip install -r requirements.txt`.
 3. Adapt the `config.json` file to your needs (see under "use"). 
 4. Create a Telegram bot at @botfather in telegram app to inform you and enter the required details in `parameters.py`.
-5. [Create a Telegram API](https://my.telegram.org/apps) to send message to bot and enter the required details (api_id, api_hash) in `parameters.py`.
+5. [Create a Telegram API](https://my.telegram.org/apps) to send a message to the bot and enter the required details (api_id, api_hash) in `parameters.py`.
 6. Run the monitor with `python monitor.py`. 
 7. (optional) Send `/setcommands` to the Telegram Botfather chat, select the bot and send the output under "Commands available:" to make the commands easily accessible from the chat. 
 
@@ -26,7 +26,7 @@ If you get errors pertaining to "Importing the numpy C-extensions failed", try r
 ## Use
 It's as simple as entering the device and Apple Store you want in `config.json` and running `python module.py`. 
 The model in `config.json` is the model part number, that can be looked up [here](https://www.techwalls.com/iphone-13-pro-model-number-a2483-a2636-a2638-a2639-a2640-differences/). 
-The store in `config.json` is the store ID, a list of which can be looked up [here](https://gist.github.com/iF2007/ff127f7722af91c47c0cb44d6c1e961d), defaults to all stores in the zip-code region. 
+The store in `config.json` is the store ID, a list of which can be looked up [here](https://gist.github.com/iF2007/ff127f7722af91c47c0cb44d6c1e961d), defaults to all stores in the zip-code region. To only use specific stores, leave the zip-code empty. If selecting multiple stores without a zip-code region, a separate request will be made for each store. 
 `config.json` is part of the interface of Apple Store Reserve Monitor, more information on how to use this [here](https://github.com/insanoid/Apple-Store-Reserve-Monitor).
 
 You can change the parameters regarding intervals, paths, use of proxies etc. from the defaults in `parameters.py`. 

@@ -13,7 +13,9 @@ import minibar
 import requests
 
 from http_request_randomizer.requests.proxy.requestProxy import RequestProxy
-from http_request_randomizer.requests.errors.ProxyListException import ProxyListException
+from http_request_randomizer.requests.errors.ProxyListException import (
+    ProxyListException,
+)
 
 from utils import send
 
@@ -30,12 +32,20 @@ class Configuration:
 
         self.country_code = config.get("country_code")
         self.device_family = config.get("device_family")
-        self.zip_code = config.get("zip_code", [])
+        self.zip_code = config.get("zip_code", None)
         self.selected_device_models = config.get("models", [])
         self.selected_carriers = config.get("carriers", [])
         self.selected_stores = config.get("stores", [])
         # Store numbers are available here.
         self.appointment_stores = config.get("appointment_stores", [])
+        self.regions = self.get_regions()
+
+    def get_regions(self) -> list[str]:
+        if self.zip_code is not None and len(self.zip_code) > 0:
+            return [f"location={self.zip_code}"]
+        elif self.selected_stores is not None:
+            return [f"store={store}" for store in self.selected_stores]
+        raise ValueError("Either zip-code region or specific stores must be selected")
 
 
 class StoreChecker:
@@ -49,15 +59,15 @@ class StoreChecker:
     PRODUCT_LOCATOR_URL = "{0}shop/product-locator-meta?family={1}"
     # End point for searching for pickup state of a certain model at a certain
     # location.
-    PRODUCT_AVAILABILITY_URL = "{0}shop/retail/pickup-message?pl=true&parts.0={1}&location={2}"
+    PRODUCT_AVAILABILITY_URL = "{0}shop/retail/pickup-message?pl=true&parts.0={1}&{2}"
     # URL for the store availabile
-    STORE_APPOINTMENT_AVAILABILITY_URL = (
-        "https://retail-pz.cdn-apple.com/product-zone-prod/availability/{0}/{1}/availability.json"
-    )
+    STORE_APPOINTMENT_AVAILABILITY_URL = "https://retail-pz.cdn-apple.com/product-zone-prod/availability/{0}/{1}/availability.json"
     # URL for the product buy
     PRODUCT_BUY_URL = "{0}shop/buy-iphone/{1}"
 
-    def __init__(self, username="dummy", filename="config.json", randomize_proxies=False):
+    def __init__(
+        self, username="dummy", filename="config.json", randomize_proxies=False
+    ):
         """Initialize the configuration for checking store(s) for stock."""
 
         self.username = username
@@ -77,32 +87,30 @@ class StoreChecker:
 
         # Since the URL only needs country code for non-US countries, switch the URL for country == US.
         if self.configuration.country_code.upper() != "US":
-            self.base_url = self.APPLE_BASE_URL.format(
-                self.configuration.country_code)
+            self.base_url = self.APPLE_BASE_URL.format(self.configuration.country_code)
 
     def get_last_status(self):
         return self.last_status
 
     def get_statuslist(self):
-        statuslist = '\n'.join(self.status_list)
-        statuslist = statuslist.replace('✔', '✅')
-        statuslist = statuslist.replace('✖', '❌')
+        statuslist = "\n".join(self.status_list)
+        statuslist = statuslist.replace("✔", "✅")
+        statuslist = statuslist.replace("✖", "❌")
         return statuslist
 
     def refresh_proxies(self):
-        """ Get a new list of proxies """
+        """Get a new list of proxies"""
         try:
             print("Assembling a list of proxies to use...\n")
             self.req_proxy = RequestProxy(log_level=logging.CRITICAL)
             self.initial_num_proxies = self.get_num_proxies()
             self.proxy_list_refresh_count += 1
         except ProxyListException as error:
-            print(
-                f"Couldn't find any proxies, not using a proxy! \nError: {error}\n")
+            print(f"Couldn't find any proxies, not using a proxy! \nError: {error}\n")
             self.randomize_proxies = False
 
     def get_num_proxies(self) -> int:
-        """ Get the number of proxies in the list """
+        """Get the number of proxies in the list"""
         if self.randomize_proxies is True:
             return len(self.req_proxy.get_proxy_list())
         return 0
@@ -118,26 +126,37 @@ class StoreChecker:
             self.device_list = await self.find_devices(verbose)
             # Exit if no device was found.
             if not self.device_list:
-                print("{}".format(crayons.red(
-                    "✖  No device matching your configuration was found!")))
+                print(
+                    "{}".format(
+                        crayons.red(
+                            "✖  No device matching your configuration was found!"
+                        )
+                    )
+                )
                 exit(1)
             else:
                 if verbose:
                     print(
                         "{} {} {}".format(
-                            crayons.green("✔  Found"), len(self.device_list), crayons.green(
-                                "devices matching your config.")
+                            crayons.green("✔  Found"),
+                            len(self.device_list),
+                            crayons.green("devices matching your config."),
                         )
                     )
             print("Retrieving stock and appointment information...")
 
         # Downloading the list of products from the server.
         if verbose:
-            print("{}".format(crayons.blue(
-                "➜  Downloading Stock Information for the devices...\n")))
+            print(
+                "{}".format(
+                    crayons.blue(
+                        "➜  Downloading Stock Information for the devices...\n"
+                    )
+                )
+            )
 
         self.stores_list_with_stock = {}
-        for device in (minibar.bar(self.device_list) if verbose else self.device_list):
+        for device in minibar.bar(self.device_list) if verbose else self.device_list:
             await self.check_stores_for_device(device)
 
         # Get all the stores and sort it by the sequence.
@@ -153,8 +172,7 @@ class StoreChecker:
         message = ""
 
         def getlink(storePickupProductTitle):
-            link = self.PRODUCT_BUY_URL.format(
-                self.base_url, "iphone-14")
+            link = self.PRODUCT_BUY_URL.format(self.base_url, "iphone-14")
             if "Pro" in storePickupProductTitle:
                 link += "-pro"
             return link
@@ -169,36 +187,49 @@ class StoreChecker:
                     )
                 )
             message += "\n\n <b>{}, {} ({})</b>\n".format(
-                store.get("storeName"),
-                store.get("city"),
-                store.get("storeId")
+                store.get("storeName"), store.get("city"), store.get("storeId")
             )
             for part_id, part in store.get("parts").items():
-                available = part.get("messageTypes").get("regular").get("storeSelectionEnabled")
+                available = (
+                    part.get("messageTypes").get("regular").get("storeSelectionEnabled")
+                )
                 if available:
                     stock_available = True
-                storePickupProductTitle = part.get("messageTypes").get("regular").get("storePickupProductTitle")
+                storePickupProductTitle = (
+                    part.get("messageTypes")
+                    .get("regular")
+                    .get("storePickupProductTitle")
+                )
                 partNumber = part.get("partNumber")
                 if verbose:
                     print(
                         " - {} {} ({})".format(
-                            crayons.green(
-                                "✔") if available else crayons.red("✖"),
-                            crayons.green(storePickupProductTitle) if available else crayons.red(
-                                storePickupProductTitle),
-                            crayons.green(partNumber) if available else crayons.red(
-                                partNumber),
+                            crayons.green("✔") if available else crayons.red("✖"),
+                            (
+                                crayons.green(storePickupProductTitle)
+                                if available
+                                else crayons.red(storePickupProductTitle)
+                            ),
+                            (
+                                crayons.green(partNumber)
+                                if available
+                                else crayons.red(partNumber)
+                            ),
                         )
                     )
                 message += "{} {}{}{} ({})\n".format(
                     "✅" if available else "❌",
-                    f"<a href=\"{getlink(storePickupProductTitle)}\">" if available else "",
+                    (
+                        f'<a href="{getlink(storePickupProductTitle)}">'
+                        if available
+                        else ""
+                    ),
                     storePickupProductTitle,
                     "</a>" if available else "",
                     partNumber,
                 )
 
-        current_datetime = datetime.now().strftime('%d-%m-%Y %H:%M:%S')
+        current_datetime = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
         processing_time = round(time.perf_counter() - start_time, 3)
         self.last_status = f"<i>Status as of {current_datetime} (took {processing_time} seconds):</i> \n{message}"
 
@@ -207,8 +238,9 @@ class StoreChecker:
             # immediately send a message!
             await send(self.telegram_client, message)
             if verbose:
-                print("\n{}".format(crayons.green(
-                    "Current Status - Stock is Available")))
+                print(
+                    "\n{}".format(crayons.green("Current Status - Stock is Available"))
+                )
             else:
                 short_status = f"✔ {current_datetime} (in {processing_time} seconds)"
                 self.status_list.append(short_status)
@@ -241,9 +273,13 @@ class StoreChecker:
             print("{}".format(crayons.blue("➜  Downloading Models List...")))
         product_locator_response = await self.get_request(
             self.PRODUCT_LOCATOR_URL.format(
-                self.base_url, self.configuration.device_family)
+                self.base_url, self.configuration.device_family
+            )
         )
-        if product_locator_response.status_code != 200 or product_locator_response.json() is None:
+        if (
+            product_locator_response.status_code != 200
+            or product_locator_response.json() is None
+        ):
             print("----> HERE" + str(device_list))
             return []
 
@@ -263,21 +299,32 @@ class StoreChecker:
                 # Only add the requested models and requested carriers (device
                 # models are partially matched)
                 if (
-                    any(item in model for item in self.configuration.selected_device_models)
+                    any(
+                        item in model
+                        for item in self.configuration.selected_device_models
+                    )
                     or len(self.configuration.selected_device_models) == 0
                 ) and (
-                    carrier in self.configuration.selected_carriers or len(
-                        self.configuration.selected_carriers) == 0
+                    carrier in self.configuration.selected_carriers
+                    or len(self.configuration.selected_carriers) == 0
                 ):
-                    device_list.append({"title": product.get(
-                        "productTitle"), "model": model, "carrier": carrier})
+                    device_list.append(
+                        {
+                            "title": product.get("productTitle"),
+                            "model": model,
+                            "carrier": carrier,
+                        }
+                    )
         except BaseException:
             if verbose:
                 print("{}".format(crayons.red("✖  Failed to find the device family")))
             if self.configuration.selected_device_models is not None:
                 if verbose:
-                    print("{}".format(crayons.blue(
-                        "➜  Looking for device models instead...")))
+                    print(
+                        "{}".format(
+                            crayons.blue("➜  Looking for device models instead...")
+                        )
+                    )
                 for model in self.configuration.selected_device_models:
                     device_list.append({"model": model})
         print(device_list)
@@ -285,22 +332,33 @@ class StoreChecker:
 
     async def check_stores_for_device(self, device, verbose=True):
         """Find all stores that have the device requested available (does not matter if it's in stock or not)."""
-        product_availability_response = await self.get_request(
-            self.PRODUCT_AVAILABILITY_URL.format(
-                self.base_url, device.get("model"), self.configuration.zip_code)
-        )
-        if verbose:
-            print(product_availability_response)
-        if product_availability_response.status_code != 200 or product_availability_response.json() is None:
-            print("\n{}".format(crayons.red("Cannot get stores!")))
-            return
-        store_list = product_availability_response.json().get("body").get("stores")
+
+        # Make a request per region
+        store_list: list[str] = list()
+        print(self.configuration.regions)
+        for region in self.configuration.regions:
+            product_availability_response = await self.get_request(
+                self.PRODUCT_AVAILABILITY_URL.format(
+                    self.base_url, device.get("model"), region
+                )
+            )
+            if verbose:
+                print(product_availability_response)
+            if (
+                product_availability_response.status_code != 200
+                or product_availability_response.json() is None
+            ):
+                print("\n{}".format(crayons.red("Cannot get stores!")))
+                return
+            store_list.extend(
+                product_availability_response.json().get("body").get("stores")
+            )
+
         # Go through all the stores in the list and extract useful information.
         # Group products by store (put the stock for this device in the store's
         # parts attribute)
         for store in store_list:
-            current_store = self.stores_list_with_stock.get(
-                store.get("storeNumber"))
+            current_store = self.stores_list_with_stock.get(store.get("storeNumber"))
             if current_store is None:
                 current_store = {
                     "storeId": store.get("storeNumber"),
@@ -314,19 +372,21 @@ class StoreChecker:
             old_parts.update(new_parts)
             current_store["parts"] = old_parts
 
-            # If the store is in the list of user's preferred list, add it to the
+            # If the store is in the list of user's preferred stores, add it to the
             # list to check for stock.
             if (
                 store.get("storeNumber") in self.configuration.selected_stores
                 or len(self.configuration.selected_stores) == 0
             ):
-                self.stores_list_with_stock[store.get(
-                    "storeNumber")] = current_store
+                self.stores_list_with_stock[store.get("storeNumber")] = current_store
 
     async def get_store_availability(self) -> Tuple[bool, str]:
-        """ Get a list of all the stores to check appointment availability, returns the message to send """
-        print("{}".format(crayons.blue(
-            "➜  Downloading store appointment availability...\n")))
+        """Get a list of all the stores to check appointment availability, returns the message to send"""
+        print(
+            "{}".format(
+                crayons.blue("➜  Downloading store appointment availability...\n")
+            )
+        )
         store_availability_list = await self.get_request(
             self.STORE_APPOINTMENT_AVAILABILITY_URL.format(
                 datetime.now().strftime("%Y-%m-%d"), datetime.utcnow().strftime("%H")
@@ -339,7 +399,8 @@ class StoreChecker:
                 store_number = store.get("storeNumber")
                 if store.get("appointmentsAvailable") is True:
                     appointment_datetime = datetime.utcfromtimestamp(
-                        int(store.get("firstAvailableAppointment"))).strftime("%d-%m-%Y %H:%M:%S")
+                        int(store.get("firstAvailableAppointment"))
+                    ).strftime("%d-%m-%Y %H:%M:%S")
                     message += f"First appointment slot available at {store_number}: {appointment_datetime}\n"
                     print(
                         " - Appointment Slot Available: {} {} ({})".format(
@@ -354,14 +415,20 @@ class StoreChecker:
         print("{}".format(crayons.blue("\n✔  Done\n")))
         return slots_found, message
 
-    async def get_request(self, url: str, proxy_retry_count=0, verbose=True) -> requests.Response:
+    async def get_request(
+        self, url: str, proxy_retry_count=0, verbose=True
+    ) -> requests.Response:
         if verbose:
             print(url)
         """ Wrapper function to execute a get request, optionally with a randomized proxy """
         max_proxy_attempts = 1
         if self.randomize_proxies is False or proxy_retry_count >= max_proxy_attempts:
             if self.randomize_proxies is True:
-                print(crayons.red(f"  randomized proxies failed {max_proxy_attempts} times, falling back to a non-proxied request. If this happens often, consider disabling randomized proxies."))
+                print(
+                    crayons.red(
+                        f"  randomized proxies failed {max_proxy_attempts} times, falling back to a non-proxied request. If this happens often, consider disabling randomized proxies."
+                    )
+                )
             return requests.get(url)
         else:
             try:
@@ -371,7 +438,7 @@ class StoreChecker:
                     return response
                 else:
                     time.sleep(3)
-                    return await self.get_request(url, proxy_retry_count+1, verbose)
+                    return await self.get_request(url, proxy_retry_count + 1, verbose)
             except ProxyListException:
                 message = f"Proxy list has been depleted, refreshing the proxy list..."
                 print(message)

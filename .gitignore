@@ -5,6 +5,7 @@ http_request_randomizer/
 *.session
 config.json
 parameters.py
+data.csv
 
 
 # macOS
