@@ -1,11 +1,10 @@
 #!/usr/bin/env python
-from __future__ import print_function, unicode_literals
 import asyncio
 
 import json
 import time
 import logging
-from datetime import date, datetime
+from datetime import datetime
 from typing import Tuple
 
 import crayons
@@ -17,7 +16,7 @@ from http_request_randomizer.requests.errors.ProxyListException import (
     ProxyListException,
 )
 
-from utils import send
+from interface import CallbacksAbstract
 
 
 class Configuration:
@@ -66,7 +65,11 @@ class StoreChecker:
     PRODUCT_BUY_URL = "{0}shop/buy-iphone/{1}"
 
     def __init__(
-        self, username="dummy", filename="config.json", randomize_proxies=False
+        self,
+        callbacks: CallbacksAbstract,
+        username="dummy",
+        filename="config.json",
+        randomize_proxies=False,
     ):
         """Initialize the configuration for checking store(s) for stock."""
 
@@ -77,6 +80,7 @@ class StoreChecker:
         self.last_status = "No status available yet, store checker has not completed"
         self.status_list = list()
         self.device_list = list()
+        self.callbacks = callbacks
 
         # set up randomized proxies if specified
         self.randomize_proxies = randomize_proxies
@@ -115,10 +119,9 @@ class StoreChecker:
             return len(self.req_proxy.get_proxy_list())
         return 0
 
-    async def refresh(self, client="", verbose=True):
+    async def refresh(self, verbose=True):
         """Refresh information about the stock that is available on the Apple website, returns whether it is available"""
         start_time = time.perf_counter()
-        self.telegram_client = client
 
         # only look up the devices once, assuming this only needs to happen once per session
         if len(self.device_list) == 0:
@@ -236,7 +239,7 @@ class StoreChecker:
         # Play the sound if phone is available.
         if stock_available:
             # immediately send a message!
-            await send(self.telegram_client, message)
+            await self.callbacks.on_stock_available(message)
             if verbose:
                 print(
                     "\n{}".format(crayons.green("Current Status - Stock is Available"))
@@ -258,7 +261,7 @@ class StoreChecker:
         if not not self.configuration.appointment_stores:
             slots_found, message = await self.get_store_availability()
             if slots_found is True:
-                await send(self.telegram_client, message)
+                await self.callbacks.on_appointment_available(message)
 
         return stock_available, current_datetime, processing_time
 
@@ -335,7 +338,6 @@ class StoreChecker:
 
         # Make a request per region
         store_list: list[str] = list()
-        print(self.configuration.regions)
         for region in self.configuration.regions:
             product_availability_response = await self.get_request(
                 self.PRODUCT_AVAILABILITY_URL.format(
@@ -442,11 +444,6 @@ class StoreChecker:
             except ProxyListException:
                 message = f"Proxy list has been depleted, refreshing the proxy list..."
                 print(message)
-                await send(self.telegram_client, message)
+                await self.callbacks.on_proxy_depletion(message)
                 self.refresh_proxies()
                 return await self.get_request(url)
-
-
-if __name__ == "__main__":
-    store_checker = StoreChecker()
-    asyncio.run(store_checker.refresh())

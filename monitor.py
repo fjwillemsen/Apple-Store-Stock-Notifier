@@ -1,12 +1,8 @@
 """Core class for monitoring stores."""
 
-from __future__ import print_function, unicode_literals
-
-import os
 import time
 import asyncio
 from pathlib import Path
-from abc import ABC, abstractmethod
 from requests.exceptions import ConnectionError
 from copy import deepcopy
 from math import ceil
@@ -17,6 +13,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from utils import past_time_formatter
+from interface import CallbacksAbstract
 from store_checker import StoreChecker
 from parameters import (
     username,
@@ -37,38 +34,6 @@ def next_search_backoff(q: Queue):
 
         # Update the progress bar through the queue
         q.put_nowait(1 - (i / (n - 1)))
-
-
-class CallbacksAbstract(ABC):
-    """An abstract class to provide an interface for callbacks from the monitor to a client."""
-
-    @abstractmethod
-    async def on_start(self):
-        pass
-
-    @abstractmethod
-    async def on_stop(self):
-        pass
-
-    @abstractmethod
-    async def on_error(self, error: str, logfile_path: Path):
-        pass
-
-    @abstractmethod
-    async def on_newly_available(self):
-        pass
-
-    @abstractmethod
-    async def on_auto_report(self, report: str):
-        pass
-
-    @abstractmethod
-    async def on_long_processing_warning(self, warning: str):
-        pass
-
-    @abstractmethod
-    async def on_connection_error(self, error: str):
-        pass
 
 
 class Monitor:
@@ -95,7 +60,7 @@ class Monitor:
         print("Apple Store Monitoring\n")
         self.store_checker = StoreChecker(username, randomize_proxies=randomize_proxies)
 
-    async def start_monitoring(self, client):
+    async def start_monitoring(self):
         """Start monitoring store stock."""
 
         # setup the report counters
@@ -104,12 +69,14 @@ class Monitor:
         found_availables = list()
         processing_time_list = list([0])
 
+        await self.callbacks.on_start()
+
         while True:
             try:
                 # get the new data and write to the data and report buffers
                 start_time = time.perf_counter()
                 availability, datetimestamp, refresh_processing_time = (
-                    await self.store_checker.refresh(client, verbose=False)
+                    await self.store_checker.refresh(verbose=False)
                 )
                 self.data.append(
                     {
@@ -127,7 +94,7 @@ class Monitor:
 
                 # if we just changed status from unavailable to available, spam the user to notify
                 if newly_available:
-                    self.callbacks.on_newly_available()
+                    await self.callbacks.on_newly_available()
 
                 # generate a report if condition is met
                 if count >= report_after_n_counts:
@@ -143,7 +110,7 @@ class Monitor:
                     report_message = f"<b>Status Report</b> \nIn the past {past_time_formatter(count, polling_interval_seconds)}, iPhones were available {count_availables} out of {len(found_availables)} times. \nThe average processing time was {processing_time_average} seconds."
                     if randomize_proxies:
                         report_message += f"\nProxy status: {self.get_proxystatus()}"
-                    self.callbacks.on_auto_report(report_message)
+                    await self.callbacks.on_auto_report(report_message)
                     print(report_message)
 
                     # write the collected data to dataframe and csv
@@ -171,7 +138,7 @@ class Monitor:
                     additional_start_time = time.perf_counter()
                     deficit = processing_time - polling_interval_seconds
                     skips = ceil(deficit / polling_interval_seconds)
-                    self.callbacks.on_long_processing_warning(
+                    await self.callbacks.on_long_processing_warning(
                         f"Processing took longer ({round(processing_time, 3)} seconds) than the set polling interval ({polling_interval_seconds} seconds). \nSkipping {skips} polling{'s' if skips != 1 else ''}. \nIf you get this message often, disable randomized proxies or increase the polling interval and reboot.",
                     )
                     count += skips
@@ -191,12 +158,12 @@ class Monitor:
                 backoff_time = polling_interval_seconds * count_connection_errors
                 message = f"Connection error, the server has likely refused the request because of too many attempts. \nTaking a break for {backoff_time} seconds before attempting again. Error message: {error}"
                 print(message)
-                self.callbacks.on_connection_error(message)
+                await self.callbacks.on_connection_error(message)
                 await asyncio.sleep(backoff_time)
 
             except BaseException as error:
                 print("Something went wrong!")
-                self.callbacks.on_error(error, self.get_logfile_path())
+                await self.callbacks.on_error(error, self.get_logfile_path())
                 self.save_df()
                 raise error
 
@@ -205,10 +172,10 @@ class Monitor:
         log_file = Path(log_path)
         return log_file if log_file.exists() else None
 
-    async def stop_monitoring(self, client):
+    async def stop_monitoring(self):
         """Stop the monitoring process"""
         print("\nStopping the monitor")
-        self.callbacks.on_stop()
+        await self.callbacks.on_stop()
         self.save_df()
 
     def save_df(self):

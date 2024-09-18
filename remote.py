@@ -7,8 +7,8 @@ from pathlib import Path
 from requests.exceptions import ConnectionError as RequestConnectionError
 from telethon import TelegramClient, events, types, errors
 from parameters import api_id, api_hash, bot_token, session_name, config_path, username
-from utils import reboot_pi, get_ip
 from monitor import Monitor, CallbacksAbstract
+from utils import reboot_pi, get_ip
 
 
 async def send(client, message: str, retry_count=0):
@@ -16,12 +16,12 @@ async def send(client, message: str, retry_count=0):
     try:
         await client.send_message(username, message)
     except RequestConnectionError as error:
-        if retry_count > 5:
-            print(f"Retried 5 times, auto-rebooting now...")
+        if retry_count >= 5:
+            print(f"Retried {retry_count} times, auto-rebooting now...")
             reboot_pi()
         backoff_time = 10
         print(
-            f"ConnectionError on sending Telgram message, waiting {backoff_time} seconds to try again. Error: {error}"
+            f"ConnectionError on sending Telegram message, waiting {backoff_time} seconds to try again. Error: {error}"
         )
         await asyncio.sleep(backoff_time)
         await send(client, message, retry_count + 1)
@@ -34,17 +34,19 @@ class Callbacks(CallbacksAbstract):
         super().__init__()
 
     async def on_start(self):
-        pass
+        # inform the user that monitoring has commenced
+        message = f"New monitoring session!\nIP address: {get_ip()}"
+        print(message)
+        await send(self.client, message)
 
     async def on_stop(self):
         await send(self.client, "This bot is done scouting the shelves, goodbye!")
 
-    async def on_error(self, error: str, logfile_path: Path):
-        await send(
-            self.client,
-            f"<b>Oops!</b> Something went wrong, the monitor <i>crashed</i>.\n  Reason: {error}",
-        )
-        await self.send_logfile(logfile_path)
+    async def on_stock_available(self, message):
+        await send(self.client, message)
+
+    async def on_appointment_available(self, message):
+        await send(self.client, message)
 
     async def on_newly_available(self):
         for i in range(3):
@@ -54,13 +56,24 @@ class Callbacks(CallbacksAbstract):
     async def on_auto_report(self, report: str):
         await send(self.client, report)
 
+    async def on_proxy_depletion(self, message: str):
+        await send(self.client, message)
+
     async def on_long_processing_warning(self, warning: str):
         await send(self.client, warning)
 
     async def on_connection_error(self, error):
         await send(self.client, error)
 
+    async def on_error(self, error: str, logfile_path: Path):
+        await send(
+            self.client,
+            f"<b>Oops!</b> Something went wrong, the monitor <i>crashed</i>.\n  Reason: {error}",
+        )
+        await self.send_logfile(logfile_path)
+
     async def send_logfile(self, logfile_path):
+        """Helper function to send a logfile."""
         if logfile_path is not None:
             async with self.client.action(username, "document") as action:
                 await self.client.send_file(
@@ -79,7 +92,7 @@ class Callbacks(CallbacksAbstract):
 class TelegramConnection:
     """Class for sending notifications and receiving commands via a Telegram bot."""
 
-    async def __init__(self) -> None:
+    def __init__(self) -> None:
         # first initialize the Telegram bot
         self.api_id = api_id
         self.api_hash = api_hash
@@ -116,46 +129,27 @@ class TelegramConnection:
         callbacks = Callbacks(client)
         self.monitor = Monitor(callbacks)
 
-        # start the monitoring
-        with client:
-            try:
-                # inform the user that monitoring has commenced
-                message = f"New monitoring session!\nIP address: {get_ip()}"
-                print(message)
-                await send(client, message)
-                client.loop.run_until_complete(self.monitor.start_monitoring(client))
-            except KeyboardInterrupt:
-                client.loop.run_until_complete(self.monitor.stop_monitoring(client))
-            except errors.rpcerrorlist.AuthKeyDuplicatedError as error:
-                print("Duplicate keys, removing the session file and rebooting")
-                await send(
-                    client,
-                    f"Duplicate keys detected, removing the session files and rebooting. \n\nFull error: \n{error}",
-                )
-                os.remove("bot.session")
-                reboot_pi()
-
         # registering Telegram responses to the requests ((?i) makes it case insensitive)
         # status handler
         @client.on(events.NewMessage(pattern="(?i)/status"))
-        async def handler(event):
+        async def handle_get_status(event):
             status = self.monitor.store_checker.get_last_status()
             await event.respond(status)
 
         # liststatus handler
         @client.on(events.NewMessage(pattern="(?i)/liststatus"))
-        async def handler(event):
+        async def handle_list_status(event):
             statuslist = self.monitor.store_checker.get_statuslist()
             await event.respond(f"Overview of all recent statuses: \n{statuslist}")
 
         # proxystatus handler
         @client.on(events.NewMessage(pattern="(?i)/proxystatus"))
-        async def handler(event):
+        async def handle_proxy_status(event):
             await event.respond(self.monitor.get_proxystatus())
 
         # termination handler
         @client.on(events.NewMessage(pattern="(?i)/terminate"))
-        async def handler(event):
+        async def handle_terminate(event):
             self.monitor.save_df()
             await event.respond(
                 "Terminating the monitor... \nTo start the monitor again, reboot."
@@ -164,14 +158,14 @@ class TelegramConnection:
 
         # reboot handler
         @client.on(events.NewMessage(pattern="(?i)/reboot"))
-        async def handler(event):
+        async def handle_reboot(event):
             self.monitor.save_df()
             await event.respond("Rebooting, I'll be back...")
             reboot_pi()
 
         # getdata handler
         @client.on(events.NewMessage(pattern="(?i)/getdata"))
-        async def handler(event):
+        async def handle_get_data(event):
             self.monitor.save_df()
             async with client.action(username, "document") as action:
                 await client.send_file(
@@ -183,13 +177,13 @@ class TelegramConnection:
 
         # getlog handler
         @client.on(events.NewMessage(pattern="(?i)/getlog"))
-        async def handler(event):
+        async def handle_get_log(event):
             self.monitor.save_df()
             callbacks.send_logfile(self.monitor.get_logfile_path())
 
         # plotprocessingtime handler
         @client.on(events.NewMessage(pattern="(?i)/plotprocessingtime"))
-        async def handler(event):
+        async def handle_plot_processing_time(event):
             filepath = self.monitor.plot_over_time(
                 yaxis="processing_time", ylabel="Processing time in seconds"
             )
@@ -203,7 +197,7 @@ class TelegramConnection:
 
         # plotavailability handler
         @client.on(events.NewMessage(pattern="(?i)/plotavailability"))
-        async def handler(event):
+        async def handle_plot_availability(event):
             filepath = self.monitor.plot_over_time(
                 yaxis="availability", ylabel="Available"
             )
@@ -217,7 +211,7 @@ class TelegramConnection:
 
         # getconfig handler
         @client.on(events.NewMessage(pattern="(?i)/getconfig"))
-        async def handler(event):
+        async def handle_get_config(event):
             async with client.action(username, "document") as action:
                 await client.send_file(
                     username,
@@ -228,14 +222,14 @@ class TelegramConnection:
 
         # setconfig handler
         @client.on(events.NewMessage(pattern="(?i)/setconfig"))
-        async def handler(event):
+        async def handle_set_config(event):
             await event.respond(
                 f"Attach a new `{config_path}` in your next message and it will be set! Don't forget to delete data.csv in case something relevant changed."
             )
 
         # general handler for all uploaded files
         @client.on(events.NewMessage())
-        async def handler(event):
+        async def handle_file_upload(event):
             if event.document is not None:
                 # handle new config.json upload
                 if (
@@ -260,3 +254,28 @@ class TelegramConnection:
                     await event.respond(
                         f"If you were trying to set a new {config_path}, make sure the file is named exactly that."
                     )
+
+        # ensure client is in class state
+        self.client = client
+
+    def start(self):
+        # start the monitoring
+        with self.client as client:
+            try:
+                client.loop.run_until_complete(self.monitor.start_monitoring())
+            except KeyboardInterrupt:
+                client.loop.run_until_complete(self.monitor.stop_monitoring())
+            except errors.rpcerrorlist.AuthKeyDuplicatedError as error:
+                print("Duplicate keys, removing the session file and rebooting")
+                print(error)
+                # await send(
+                #     client,
+                #     f"Duplicate keys detected, removing the session files and rebooting. \n\nFull error: \n{error}",
+                # )
+                os.remove("bot.session")
+                reboot_pi()
+
+
+if __name__ == "__main__":
+    remote = TelegramConnection()
+    remote.start()
