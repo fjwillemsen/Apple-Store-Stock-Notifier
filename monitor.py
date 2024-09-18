@@ -9,6 +9,7 @@ from requests.exceptions import ConnectionError
 from copy import deepcopy
 from math import ceil
 from datetime import datetime
+from multiprocessing import Queue
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -32,6 +33,17 @@ from parameters import (
     log_path,
     randomize_proxies,
 )
+
+
+def next_search_backoff(q: Queue):
+    """Update the progress bar via the queue."""
+    n = 10
+    for i in range(n):
+        # Perform some heavy computation
+        time.sleep(1)
+
+        # Update the progress bar through the queue
+        q.put_nowait(1 - (i / (n - 1)))
 
 
 # registering the possible user commands
