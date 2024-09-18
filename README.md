@@ -8,10 +8,11 @@ It is intended to run on an always-on device (such as a Raspberry Pi), and requi
 
 This software is built on a modified version of [Apple-Store-Reserve-Monitor](https://github.com/insanoid/Apple-Store-Reserve-Monitor) by [insanoid](https://github.com/insanoid). 
 
+## Installation (App)
+The app can be downloaded from the [releases page](). 
 
-## Installation
-How to install
-
+## Installation (CLI)
+How to install the command-line interface monitor:
 1. Clone this repository and `cd` to it. 
 2. Execute `pip install -r requirements.txt`.
 3. Adapt the `config.json` file to your needs (see under "use"). 
@@ -19,6 +20,7 @@ How to install
 5. [Create a Telegram API](https://my.telegram.org/apps) to send a message to the bot and enter the required details (api_id, api_hash) in `parameters.py`.
 6. Run the monitor with `python monitor.py`. 
 7. (optional) Send `/setcommands` to the Telegram Botfather chat, select the bot and send the output under "Commands available:" to make the commands easily accessible from the chat. 
+8. (optional) to build the GUI app, run `nicegui-pack --windowed --name "Apple Stock Notifier" main.py`. 
 
 Running the pip numpy on the Raspberry Pi can be cumbersome. 
 If you get errors pertaining to "Importing the numpy C-extensions failed", try running `sudo apt-get install python-dev libatlas-base-dev`. 
