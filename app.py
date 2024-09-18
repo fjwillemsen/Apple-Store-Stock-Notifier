@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+"""Directly executable script to run the GUI application."""
+
 # macOS packaging support
 from multiprocessing import freeze_support  # noqa
 
@@ -54,6 +57,8 @@ def main():
         with ui.tabs() as tabs:
             ui.tab("Results")
             ui.tab("Map")
+            ui.tab("Remote notifications")
+            ui.tab("Insights")
 
     with ui.footer(value=False).classes("bg-red-100") as footer:
         ui.link(
@@ -66,6 +71,7 @@ def main():
         "bg-blue-100"
     ) as left_drawer:
         ui.label("Side menu")
+        # TODO integrate config and parameters via bindings
         ui.button(
             "Search", icon="search", on_click=lambda e: start_new_search(left_drawer)
         )
@@ -83,6 +89,12 @@ def main():
         with ui.tab_panel("Map"):
             ui.label("🛠️ Map functionality is coming soon! 🚧")
             # TODO https://nicegui.io/documentation/leaflet
+        with ui.tab_panel("Remote notifications"):
+            ui.label("🛠️ Remote notifications are coming soon! 🚧")
+            # TODO explain and allow configuration of remote notifications
+        with ui.tab_panel("Insights"):
+            ui.label("🛠️ Insights are coming soon! 🚧")
+            # TODO provide plots and data
 
 
 ui.run(
@@ -90,6 +102,6 @@ ui.run(
     reload=False,
     native=True,
     port=native.find_open_port(),
-    dark=None,  # auto switch,
+    dark=None,  # auto switch based on OS theme
     favicon="assets/icon.jpg",
 )
