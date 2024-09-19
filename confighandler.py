@@ -1,74 +1,68 @@
-"""Module for handling the configuration file."""
+"""Module for handling the configuration file, can auto-update and callback on external changes."""
 
-import asyncio
 from pathlib import Path
-from tomlkit import load, dumps
+from tomlkit import load, dump
 from watchfiles import awatch
 
 
 class ConfigHandler:
     """Class for handling configuration file reading and manipulation."""
 
-    def __init__(self) -> None:
-        """Initialization function. Note that you must listen for file changes by calling `watch_changes`."""
-        self.configfile_path = Path("config.toml")
+    def __init__(self, path_to_config_file="config.toml", auto_update=True) -> None:
+        """Initialization function. Note that you must listen for file changes by calling `watch_changes`.
+
+        Args:
+            path_to_config_file (str, optional): the path to the config file. Defaults to "config.toml".
+            auto_update (bool, optional): whether to automatically keep the in-memory doc up to date with the on-disk config. Defaults to True.
+        """
+        self.configfile_path = Path(path_to_config_file)
+        self.auto_update = auto_update
+        assert self.configfile_path.exists()
         self.read()
-        print("Ready!")
 
     def __get_contents_on_disk(self):
         with self.configfile_path.open() as fp:
             return load(fp)
 
     def read(self):
-        print("read")
-        self.doc = self.__get_contents_on_disk()
+        """Read the on-disk config to in-memory doc."""
+        self.__doc = self.__get_contents_on_disk()
 
     def write(self):
-        dumps(self.doc)
+        """Write the in-memory doc to disk. ATTENTION: this can overwrite changes by others if `auto_update` is not used."""
+        with self.configfile_path.open("w+") as fp:
+            dump(self.__doc, fp)
+
+    def get(self, keys: list[str]):
+        """Get a value from the config."""
+        val = self.__doc.get(keys.pop(0)) if len(keys) > 0 else self.__doc
+        while len(keys) > 0:
+            key = keys.pop(0)
+            val = val[key]
+        return val
+
+    def set(self, keys: list[str], value: any):
+        """Set a value in the config. Auto-update config on disk if enabled."""
+        dic = self.__doc
+        for key in keys[:-1]:
+            dic = dic.setdefault(key, {})
+        dic[keys[-1]] = value
+        if self.auto_update:
+            self.write()
 
     def is_outdated(self) -> bool:
         """Checks if the in-memory doc is outdated compared to the on-disk file."""
-        return self.__get_contents_on_disk() != self.doc
+        return self.__get_contents_on_disk() != self.__doc
 
-    async def watch_changes(self, callback_on_external_update=None, auto_update=True):
-        """_summary_
+    async def watch_changes(self, callback_on_external_update=None):
+        """Watch for changes to the on-disk config file.
 
         Args:
             callback_on_external_update (Callable, optional): callback function that is called after the configuration has been updated by another instance. Defaults to None.
-            auto_update (bool, optional): whether to automatically keep the in-memory doc up to date with the on-disk config. Defaults to True.
         """
-        """Watch for changes to the config file, call callback_on_update if"""
         async for _ in awatch(self.configfile_path, poll_delay_ms=1000):
             if self.is_outdated():
-                print("outdated")
-                if auto_update:
+                if self.auto_update:
                     self.read()
                 if callback_on_external_update is not None:
-                    print("calling callback")
                     callback_on_external_update()
-
-
-if __name__ == "__main__":
-
-    def hi():
-        print("hi there!")
-
-    ch = ConfigHandler()
-    asyncio.run(ch.watch_changes(hi, auto_update=False))
-    print("Ready!")
-
-
-# content = """[table]
-# foo = "bar"  # String
-# """
-# doc = parse(content)
-
-# # doc is a TOMLDocument instance that holds all the information
-# # about the TOML string.
-# # It behaves like a standard dictionary.
-
-# assert doc["table"]["foo"] == "bar"
-
-# # The string generated from the document is exactly the same
-# # as the original string
-# assert dumps(doc) == content
