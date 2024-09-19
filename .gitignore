@@ -1,6 +1,6 @@
 bot.session
 .vscode/*
-/__pycache__
+__pycache__
 http_request_randomizer/
 *.session
 config.json
