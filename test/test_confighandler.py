@@ -43,7 +43,7 @@ async def test_watch_changes_callback():
         task = asyncio.create_task(ch.watch_changes(callbackfn))
         await asyncio.sleep(0.5)  # just to make sure the file watcher is setup
         ch_new.set(["search", "device_family"], "iphone_15_pro")
-        await task  # can be done because we know callbacks raise an exception, otherwise use e.g. await asyncio.sleep(3)
+        await task  # can be done because we know callbacks raise an exception, otherwise use e.g. await asyncio.sleep(1)
 
     # check that the original confighandler now has the new data
     assert ch.get(["search", "device_family"]) == "iphone_15_pro"

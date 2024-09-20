@@ -8,11 +8,11 @@ from watchfiles import awatch
 class ConfigHandler:
     """Class for handling configuration file reading and manipulation."""
 
-    def __init__(self, path_to_config_file="config.toml", auto_update=True) -> None:
+    def __init__(self, path_to_config_file="./config.toml", auto_update=True) -> None:
         """Initialization function. Note that you must listen for file changes by calling `watch_changes`.
 
         Args:
-            path_to_config_file (str, optional): the path to the config file. Defaults to "config.toml".
+            path_to_config_file (str, optional): the path to the config file. Defaults to "./config.toml".
             auto_update (bool, optional): whether to automatically keep the in-memory doc up to date with the on-disk config. Defaults to True.
         """
         self.configfile_path = Path(path_to_config_file)
@@ -27,6 +27,7 @@ class ConfigHandler:
     def read(self):
         """Read the on-disk config to in-memory doc."""
         self.__doc = self.__get_contents_on_disk()
+        self.searchconfig = Configuration(self)
 
     def write(self):
         """Write the in-memory doc to disk. ATTENTION: this can overwrite changes by others if `auto_update` is not used."""
@@ -66,3 +67,25 @@ class ConfigHandler:
                     self.read()
                 if callback_on_external_update is not None:
                     callback_on_external_update()
+
+
+class Configuration:
+    """Create a configuration of the device and region to search."""
+
+    def __init__(self, confighandler: ConfigHandler):
+        searchconfig = confighandler.get(["search"])
+        self.country_code = searchconfig.get("country_code", "us")
+        self.device_family = searchconfig.get("device_family")
+        self.zip_code = searchconfig.get("zip_code", None)
+        self.selected_device_models = searchconfig.get("models", [])
+        self.selected_carriers = searchconfig.get("carriers", [])
+        self.selected_stores = searchconfig.get("stores", [])
+        self.appointment_stores = searchconfig.get("appointment_stores", [])
+        self.regions = self.get_regions()
+
+    def get_regions(self) -> list[str]:
+        if self.zip_code is not None and len(self.zip_code) > 0:
+            return [f"location={self.zip_code}"]
+        elif self.selected_stores is not None:
+            return [f"store={store}" for store in self.selected_stores]
+        raise ValueError("Either zip-code region or specific stores must be selected")

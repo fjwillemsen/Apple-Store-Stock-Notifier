@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Directly executable script to run the GUI application."""
 
-# macOS packaging support
+# for macOS packaging support, must be at top of file
 from multiprocessing import freeze_support  # noqa
 
 freeze_support()  # noqa
@@ -11,7 +11,7 @@ freeze_support()  # noqa
 # sys.stdout = open("logs.txt", "w")
 
 # UI
-from nicegui import native, ui, run
+from nicegui import native, ui, run  # noqa: E402
 from multiprocessing import Manager
 from monitor import next_search_backoff
 
@@ -62,7 +62,7 @@ def main():
 
     with ui.footer(value=False).classes("bg-red-100") as footer:
         ui.link(
-            "Made in California by Floris-Jan Willemsen. Please donate: ❤️",
+            "Made in California by Floris-Jan Willemsen. Please buy me a coffee: ❤️",
             "https://paypal.com",
             new_tab=True,
         )

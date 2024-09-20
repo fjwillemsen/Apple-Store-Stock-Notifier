@@ -4,7 +4,7 @@
 device_family = "iphone_16_pro" # the device family
 models = ["MYM93LL/A", "MYMD3LL/A"] # the device types
 carriers = ["UNLOCKED/US"] # the carriers, if applicable
-countrycode = "us" # the country code
+country_code = "us" # the country code
 zip_code = "94061" # the zip-code area, can be left empty to use specific stores
 stores = [
     "R044",

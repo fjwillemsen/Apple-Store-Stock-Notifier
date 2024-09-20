@@ -15,14 +15,7 @@ import matplotlib.pyplot as plt
 from utils import past_time_formatter
 from interface import CallbacksAbstract
 from store_checker import StoreChecker
-from parameters import (
-    username,
-    polling_interval_seconds,
-    report_after_n_counts,
-    data_path,
-    log_path,
-    randomize_proxies,
-)
+from confighandler import ConfigHandler
 
 
 def next_search_backoff(q: Queue):
@@ -39,12 +32,23 @@ def next_search_backoff(q: Queue):
 class Monitor:
     """A class to constantly monitor stock at periodic intervals and report back via callbacks."""
 
-    def __init__(self, callbacks: CallbacksAbstract):
+    def __init__(
+        self, callbacks: CallbacksAbstract, path_to_config_file="./config.toml"
+    ):
         """Initialization."""
+        self.callbacks = callbacks
+        self.path_to_config_file = path_to_config_file
+
+        # initialize the ConfigHandler and store checker
+        loop = asyncio.get_event_loop()
+        init = loop.create_task(self.restart_handler())
+        loop.run_until_complete(init)
 
         # set up the dataframe to store data and the data buffer
-        if Path(data_path).exists():
-            self.df = pd.read_csv(data_path, index_col=[0])
+        if Path(self.confighandler.get(["general", "data_path"])).exists():
+            self.df = pd.read_csv(
+                self.confighandler.get(["general", "data_path"]), index_col=[0]
+            )
         else:
             self.df = pd.DataFrame(
                 {
@@ -54,11 +58,20 @@ class Monitor:
                 }
             )
         self.data = self.df.to_dict("records")
-        self.callbacks = callbacks
-
-        # initializing the store checker
         print("Apple Store Monitoring\n")
-        self.store_checker = StoreChecker(username, randomize_proxies=randomize_proxies)
+
+    async def restart_handler(self):
+        """Callback function to initialize the ConfigHandler and start watching"""
+        print("Setting up config handler and store checker for Monitor")
+        self.confighandler = ConfigHandler(self.path_to_config_file)
+        asyncio.create_task(self.confighandler.watch_changes(self.restart_handler))
+        await asyncio.sleep(0.1)  # to let the watcher finish setup
+        # initialize the store checker
+        self.store_checker = StoreChecker(
+            self.callbacks,
+            self.confighandler.searchconfig,
+            randomize_proxies=self.confighandler.get(["general", "randomize_proxies"]),
+        )
 
     async def start_monitoring(self):
         """Start monitoring store stock."""
@@ -71,7 +84,10 @@ class Monitor:
 
         await self.callbacks.on_start()
 
-        while True:
+        while True:  # TODO find a better way? Check that it isn't hogging resources
+            polling_interval_seconds = self.confighandler.get(
+                ["general", "polling_interval_seconds"]
+            )
             try:
                 # get the new data and write to the data and report buffers
                 start_time = time.perf_counter()
@@ -97,7 +113,9 @@ class Monitor:
                     await self.callbacks.on_newly_available()
 
                 # generate a report if condition is met
-                if count >= report_after_n_counts:
+                if count >= self.confighandler.get(
+                    ["general", "report_after_n_counts"]
+                ):
 
                     # collect the report data
                     count_availables = sum(found_availables)
@@ -108,7 +126,7 @@ class Monitor:
 
                     # print the report
                     report_message = f"<b>Status Report</b> \nIn the past {past_time_formatter(count, polling_interval_seconds)}, iPhones were available {count_availables} out of {len(found_availables)} times. \nThe average processing time was {processing_time_average} seconds."
-                    if randomize_proxies:
+                    if self.confighandler.get(["general", "randomize_proxies"]):
                         report_message += f"\nProxy status: {self.get_proxystatus()}"
                     await self.callbacks.on_auto_report(report_message)
                     print(report_message)
@@ -169,19 +187,19 @@ class Monitor:
 
     def get_logfile_path(self):
         """Get the path to the logfile or None if it does not exist."""
-        log_file = Path(log_path)
+        log_file = Path(self.confighandler.get(["general", "log_path"]))
         return log_file if log_file.exists() else None
 
     async def stop_monitoring(self):
         """Stop the monitoring process"""
         print("\nStopping the monitor")
-        await self.callbacks.on_stop()
         self.save_df()
+        await self.callbacks.on_stop()
 
     def save_df(self):
         """Save the data to a dataframe and to csv file"""
         self.df = pd.DataFrame(self.data)
-        return self.df.to_csv(data_path)
+        return self.df.to_csv(self.confighandler.get(["general", "data_path"]))
 
     def get_proxystatus(self):
         """Generate a proxy status message"""
@@ -191,7 +209,7 @@ class Monitor:
             proxy_list_refresh_count = self.store_checker.proxy_list_refresh_count
             message = f"Proxies were succesful {self.store_checker.count_randomized_proxy_success} times. \nThere are {left} of the initial {initial} proxies left to use. \n{initial-left} proxies have been removed. \nThe proxy list has been assembled {proxy_list_refresh_count} time{'s' if proxy_list_refresh_count != 1 else ''}."
         else:
-            if randomize_proxies is True:
+            if self.confighandler.get(["general", "randomize_proxies"]) is True:
                 message = "Randomized proxies were enabled, but there are no active proxies left. \nNon-proxied requests are used."
             else:
                 message = "Randomized proxies are not enabled."
@@ -217,10 +235,19 @@ class Monitor:
         ax.set_ylabel(ylabel)
         if yaxis == "processing_time":
             # plot the moving average
-            ma = plot_df["processing_time"].rolling(ceil(report_after_n_counts)).mean()
+            ma = (
+                plot_df["processing_time"]
+                .rolling(
+                    ceil(self.confighandler.get(["general", "report_after_n_counts"]))
+                )
+                .mean()
+            )
             plt.plot(ma)
             # limit the y-axis
-            ylimmax = min(plot_df[yaxis].max(), polling_interval_seconds)
+            ylimmax = min(
+                plot_df[yaxis].max(),
+                self.confighandler.get(["general", "polling_interval_seconds"]),
+            )
             ax.set_ylim(0, ylimmax)
         # dates = self.df["datetimestamp"].to_list()
         # dates = [datetime.strptime(x, '%d-%m-%Y %H:%M:%S') for x in dates]

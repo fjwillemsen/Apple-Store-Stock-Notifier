@@ -1,7 +1,5 @@
-#!/usr/bin/env python
-import asyncio
+"""Core class for searching stores."""
 
-import json
 import time
 import logging
 from datetime import datetime
@@ -17,34 +15,7 @@ from http_request_randomizer.requests.errors.ProxyListException import (
 )
 
 from interface import CallbacksAbstract
-
-
-class Configuration:
-    """Load the configuration from the config, country, device family, zip, models to search for."""
-
-    def __init__(self, filename):
-        if filename is None:
-            print("No configuration was provided.")
-            exit(0)
-        with open("config.json") as json_data_file:
-            config = json.load(json_data_file)
-
-        self.country_code = config.get("country_code")
-        self.device_family = config.get("device_family")
-        self.zip_code = config.get("zip_code", None)
-        self.selected_device_models = config.get("models", [])
-        self.selected_carriers = config.get("carriers", [])
-        self.selected_stores = config.get("stores", [])
-        # Store numbers are available here.
-        self.appointment_stores = config.get("appointment_stores", [])
-        self.regions = self.get_regions()
-
-    def get_regions(self) -> list[str]:
-        if self.zip_code is not None and len(self.zip_code) > 0:
-            return [f"location={self.zip_code}"]
-        elif self.selected_stores is not None:
-            return [f"store={store}" for store in self.selected_stores]
-        raise ValueError("Either zip-code region or specific stores must be selected")
+from confighandler import Configuration
 
 
 class StoreChecker:
@@ -67,14 +38,12 @@ class StoreChecker:
     def __init__(
         self,
         callbacks: CallbacksAbstract,
-        username="dummy",
-        filename="config.json",
+        configuration: Configuration,
         randomize_proxies=False,
     ):
         """Initialize the configuration for checking store(s) for stock."""
 
-        self.username = username
-        self.configuration = Configuration(filename)
+        self.configuration = configuration
         self.stores_list_with_stock = {}
         self.base_url = "https://www.apple.com/"
         self.last_status = "No status available yet, store checker has not completed"
