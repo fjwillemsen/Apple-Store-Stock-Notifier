@@ -183,7 +183,7 @@ class TelegramConnection:
         @client.on(events.NewMessage(pattern="(?i)/getlog"))
         async def handle_get_log(event):
             self.monitor.save_df()
-            callbacks.send_logfile(self.monitor.get_logfile_path())
+            await callbacks.send_logfile(self.monitor.get_logfile_path())
 
         # plotprocessingtime handler
         @client.on(events.NewMessage(pattern="(?i)/plotprocessingtime"))
