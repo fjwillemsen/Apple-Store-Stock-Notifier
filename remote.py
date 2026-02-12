@@ -28,51 +28,62 @@ async def send(client, username: str, message: str, retry_count=0):
 
 
 # setup callbacks
+
 class Callbacks(CallbacksAbstract):
-    def __init__(self, client: TelegramClient, username: str) -> None:
+    def __init__(self, client: TelegramClient, username: str, notification_prefs: dict) -> None:
         self.client = client
         self.username = username
         self.meta = (client, username)
+        self.notification_prefs = notification_prefs
         super().__init__()
 
     async def on_start(self):
-        # inform the user that monitoring has commenced
-        message = f"New monitoring session!\nIP address: {get_ip()}"
-        print(message)
-        await send(*self.meta, message)
+        if self.notification_prefs.get("on_start", True):
+            message = f"New monitoring session!\nIP address: {get_ip()}"
+            print(message)
+            await send(*self.meta, message)
 
     async def on_stop(self):
-        await send(*self.meta, "This bot is done scouting the shelves, goodbye!")
+        if self.notification_prefs.get("on_stop", True):
+            await send(*self.meta, "This bot is done scouting the shelves, goodbye!")
 
     async def on_stock_available(self, message):
-        await send(*self.meta, message)
+        if self.notification_prefs.get("on_stock_available", True):
+            await send(*self.meta, message)
 
     async def on_appointment_available(self, message):
-        await send(*self.meta, message)
+        if self.notification_prefs.get("on_appointment_available", True):
+            await send(*self.meta, message)
 
     async def on_newly_available(self):
-        for i in range(3):
-            await send(*self.meta, f"AVAILABLE! {i}")
-            await asyncio.sleep(1)
+        if self.notification_prefs.get("on_newly_available", True):
+            for i in range(3):
+                await send(*self.meta, f"AVAILABLE! {i}")
+                await asyncio.sleep(1)
 
     async def on_auto_report(self, report: str):
-        await send(*self.meta, report)
+        if self.notification_prefs.get("on_auto_report", True):
+            await send(*self.meta, report)
 
     async def on_proxy_depletion(self, message: str):
-        await send(*self.meta, message)
+        if self.notification_prefs.get("on_proxy_depletion", True):
+            await send(*self.meta, message)
 
     async def on_long_processing_warning(self, warning: str):
-        await send(*self.meta, warning)
+        if self.notification_prefs.get("on_long_processing_warning", True):
+            await send(*self.meta, warning)
 
     async def on_connection_error(self, error):
-        await send(*self.meta, error)
+        if self.notification_prefs.get("on_connection_error", True):
+            await send(*self.meta, error)
 
     async def on_error(self, error: str, logfile_path: Path):
-        await send(
-            *self.meta,
-            f"<b>Oops!</b> Something went wrong, the monitor <i>crashed</i>.\n  Reason: {error}",
-        )
-        await self.send_logfile(logfile_path)
+        if self.notification_prefs.get("on_error", True):
+            await send(
+                *self.meta,
+                f"<b>Oops!</b> Something went wrong, the monitor <i>crashed</i>.\n  Reason: {error}",
+            )
+            await self.send_logfile(logfile_path)
 
     async def send_logfile(self, logfile_path):
         """Helper function to send a logfile."""
@@ -91,6 +102,7 @@ class Callbacks(CallbacksAbstract):
             )
 
 
+
 class TelegramConnection:
     """Class for sending notifications and receiving commands via a Telegram bot."""
 
@@ -102,6 +114,9 @@ class TelegramConnection:
         self.bot_token = telegramconfig.get("bot_token")
         self.session_name = telegramconfig.get("session_name")
         self.username = telegramconfig.get("username")
+
+        # read notification preferences from config
+        self.notification_prefs = configurationhandler.get(["notifications"]) or {}
 
         # creating a Telegram session and assigning it to a variable client
         client = TelegramClient(self.session_name, self.api_id, self.api_hash)
@@ -130,7 +145,7 @@ class TelegramConnection:
         print(commands_available_txt)
 
         # set up the monitor
-        callbacks = Callbacks(client, self.username)
+        callbacks = Callbacks(client, self.username, self.notification_prefs)
         self.monitor = Monitor(callbacks)
 
         # registering Telegram responses to the requests ((?i) makes it case insensitive)

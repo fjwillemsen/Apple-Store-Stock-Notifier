@@ -21,3 +21,16 @@ api_id = ""                        # Telegram bot API ID (usually an 8-digit num
 api_hash = ""                      # Telegram bot API hash
 bot_token = ""                     # Telegram bot token
 session_name = "iPhone16ProFinder" # A unique name to create the virtual telegram client
+
+# Notification preferences for Telegram
+[notifications]
+on_start = true                  # Notify when monitoring starts
+on_stop = true                   # Notify when monitoring stops
+on_stock_available = true        # Notify when stock is available
+on_appointment_available = true  # Notify when appointment is available
+on_newly_available = true        # Notify when newly available stock is detected
+on_auto_report = true            # Notify with auto-generated reports
+on_proxy_depletion = true        # Notify when proxies are depleted
+on_long_processing_warning = true # Notify when processing takes too long
+on_connection_error = true       # Notify on connection errors
+on_error = true                  # Notify on general errors
