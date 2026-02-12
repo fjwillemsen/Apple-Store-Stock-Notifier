@@ -143,11 +143,11 @@ class StoreChecker:
         # in the store and print their status.
         message = ""
 
-        def getlink(storePickupProductTitle):
-            link = self.PRODUCT_BUY_URL.format(self.base_url, "iphone-14")
-            if "Pro" in storePickupProductTitle:
-                link += "-pro"
-            return link
+        def getlink(device_list, partNumber: str) -> str:
+            for device in device_list:
+                if device.get("model") == partNumber:
+                    return device.get("link")
+            return self.base_url
 
         for store in stores:
             if verbose:
@@ -162,6 +162,7 @@ class StoreChecker:
                 store.get("storeName"), store.get("city"), store.get("storeId")
             )
             for part_id, part in store.get("parts").items():
+                partNumber = part.get("partNumber")
                 available = (
                     part.get("messageTypes").get("regular").get("storeSelectionEnabled")
                 )
@@ -192,7 +193,7 @@ class StoreChecker:
                 message += "{} {}{}{} ({})\n".format(
                     "✅" if available else "❌",
                     (
-                        f'<a href="{getlink(storePickupProductTitle)}">'
+                        f'<a href="{getlink(self.device_list, partNumber)}">'
                         if available
                         else ""
                     ),
@@ -285,6 +286,7 @@ class StoreChecker:
                             "title": product.get("productTitle"),
                             "model": model,
                             "carrier": carrier,
+                            "link": product.get("productLink"),
                         }
                     )
         except BaseException:
