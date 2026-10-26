@@ -2,9 +2,8 @@
 
 <!-- ### Apple Store Stock Notifier monitors the availability of selected Apple devices in selected Apple stores, and sends you a notification when devices are available! -->
 
-**This software will immediately send you a notification via Telegram when one of your coveted Apple Devices is available in the selected Apple Stores!**
-In addition, it offers various tools (such as graphs) to analyze the availability of the selected devices from the comfort of your smartphone / tablet / teapot / desktop etc. (whatever Telegram runs on). 
-It is intended to run on an always-on device (such as a Raspberry Pi), and requires an internet connection and a Telegram account. 
+**This software will immediately send you a push notification via [ntfy](https://ntfy.sh) when one of your coveted Apple Devices is available in the selected Apple Stores!**
+It is intended to run on an always-on device (such as a Raspberry Pi), and requires an internet connection and the ntfy app (or web client) subscribed to your topic. 
 
 This software is built on a modified version of [Apple-Store-Reserve-Monitor](https://github.com/insanoid/Apple-Store-Reserve-Monitor) by [insanoid](https://github.com/insanoid). 
 
@@ -17,11 +16,9 @@ It can be installed as follows:
 1. Clone this repository and `cd` to it. 
 2. Execute `pip install -r requirements.txt`.
 3. Adapt the `config.toml` file to your needs (see under "use"). 
-4. Create a Telegram bot at @botfather in telegram app to inform you and enter the required details in `config.toml`.
-5. [Create a Telegram API](https://my.telegram.org/apps) to send a message to the bot and enter the required details (api_id, api_hash) in `config.toml`.
-6. Run the monitor with `python remote.py`, or run the app with `python app.py`. 
-7. (optional) Send `/setcommands` to the Telegram Botfather chat, select the bot and send the output under "Commands available:" to make the commands easily accessible from the chat. 
-8. (optional) to build the GUI app, run `nicegui-pack --windowed --name "Apple Stock Notifier" app.py`. 
+4. Pick a hard-to-guess ntfy topic, set it as `topic` under `[ntfy]` in `config.toml`, and subscribe to it in the ntfy app.
+5. Run the monitor with `python remote.py`, or run the app with `python app.py`. 
+6. (optional) to build the GUI app, run `nicegui-pack --windowed --name "Apple Stock Notifier" app.py`. 
 
 Running the pip numpy on the Raspberry Pi can be cumbersome. 
 If you get errors pertaining to "Importing the numpy C-extensions failed", try running `sudo apt-get install python-dev libatlas-base-dev`. 

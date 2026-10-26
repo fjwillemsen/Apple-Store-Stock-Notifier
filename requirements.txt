@@ -18,9 +18,10 @@ pipupgrade>=1.7.4
 pycodestyle>=2.6.0
 requests>=2.24.0
 toml>=0.10.1
+tomlkit>=0.11.0
+watchfiles>=0.18.0
+nest_asyncio>=1.5.0
 urllib3>=1.25.11
-telebot>=0.0.4
-telethon>=1.23.0
 
 # http request randomizer requirements
 beautifulsoup4 >= 4.9.3
@@ -28,6 +29,7 @@ coverage >= 5.3
 httmock >= 1.3.0
 psutil >= 5.7.2
 pytest >= 6.1.1
+pytest-asyncio >= 0.21.0
 pytest-cov >= 2.10.1
 python-dateutil >= 2.8.1
 pyOpenSSL >= 19.1.0

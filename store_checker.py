@@ -236,7 +236,17 @@ class StoreChecker:
         return stock_available, current_datetime, processing_time
 
     async def find_devices(self, verbose=True):
-        """Find the required devices based on the configuration."""
+        """Find the required devices across all configured device families."""
+        devices = {}
+        for family in self.configuration.device_families:
+            for device in await self.find_family_devices(family, verbose):
+                # a fallback entry (no link) from a failed family must not shadow a real one
+                if device.get("link") or device["model"] not in devices:
+                    devices[device["model"]] = device
+        return list(devices.values())
+
+    async def find_family_devices(self, family, verbose=True):
+        """Find the required devices in one device family based on the configuration."""
         # Store the information about the available devices for the family -
         # title, model, carrier.
         device_list = []
@@ -246,7 +256,7 @@ class StoreChecker:
             print("{}".format(crayons.blue("➜  Downloading Models List...")))
         product_locator_response = await self.get_request(
             self.PRODUCT_LOCATOR_URL.format(
-                self.base_url, self.configuration.device_family
+                self.base_url, family
             )
         )
         if (

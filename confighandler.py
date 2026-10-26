@@ -75,7 +75,9 @@ class Configuration:
     def __init__(self, confighandler: ConfigHandler):
         searchconfig = confighandler.get(["search"])
         self.country_code = searchconfig.get("country_code", "us")
-        self.device_family = searchconfig.get("device_family")
+        # a single family or a list of families
+        family = searchconfig.get("device_family")
+        self.device_families = [family] if isinstance(family, str) else list(family)
         self.zip_code = searchconfig.get("zip_code", None)
         self.selected_device_models = searchconfig.get("models", [])
         self.selected_carriers = searchconfig.get("carriers", [])

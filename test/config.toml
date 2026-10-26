@@ -18,9 +18,6 @@ data_path = "data.csv"
 log_path = "log.txt"
 randomize_proxies = false
 
-[telegram]
-username = ""     # Your Telegram username (messages will be sent to this user)
-api_id = ""       # Telegram bot API ID (usually an 8-digit number)
-api_hash = ""     # Telegram bot API hash
-bot_token = ""    # Telegram bot token
-session_name = "" # A unique name to create the virtual telegram client
+[ntfy]
+server = "https://ntfy.sh"
+topic = ""

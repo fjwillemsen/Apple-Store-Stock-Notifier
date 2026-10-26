@@ -4,14 +4,6 @@ import socket
 from math import floor
 
 
-def reboot_pi():
-    """Reboot the Pi"""
-    print("Rebooting at the request of the user")
-    import subprocess
-
-    subprocess.Popen(["sudo", "reboot"])
-
-
 def get_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
